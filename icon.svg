@@ -1,0 +1,25 @@
+<svg width="512" height="512" xmlns="http://www.w3.org/2000/svg">
+  <rect width="512" height="512" rx="100" fill="#ef4444"/>
+  <circle cx="256" cy="256" r="180" fill="#dc2626" opacity="0.3"/>
+  <circle cx="256" cy="256" r="120" fill="#dc2626" opacity="0.3"/>
+  
+  <!-- Вирус -->
+  <circle cx="256" cy="256" r="80" fill="#fecaca"/>
+  
+  <!-- Шипы -->
+  <circle cx="256" cy="176" r="15" fill="#fca5a5"/>
+  <circle cx="336" cy="256" r="15" fill="#fca5a5"/>
+  <circle cx="256" cy="336" r="15" fill="#fca5a5"/>
+  <circle cx="176" cy="256" r="15" fill="#fca5a5"/>
+  
+  <circle cx="296" cy="216" r="12" fill="#fca5a5"/>
+  <circle cx="296" cy="296" r="12" fill="#fca5a5"/>
+  <circle cx="216" cy="296" r="12" fill="#fca5a5"/>
+  <circle cx="216" cy="216" r="12" fill="#fca5a5"/>
+  
+  <!-- Центр -->
+  <circle cx="256" cy="256" r="40" fill="#ef4444"/>
+  <circle cx="245" cy="245" r="8" fill="#fca5a5"/>
+  <circle cx="270" cy="250" r="6" fill="#fca5a5"/>
+  <circle cx="250" cy="270" r="7" fill="#fca5a5"/>
+</svg>

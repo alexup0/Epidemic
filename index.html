@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Эпидемия">
+    <meta name="description" content="Интерактивная модель распространения эпидемии">
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/svg+xml" href="icon.svg">
+    <link rel="apple-touch-icon" href="icon.svg">
+    <title>🦠 Модель эпидемии</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- React и ReactDOM -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- Babel для JSX -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            overscroll-behavior: none;
+        }
+        
+        * {
+            touch-action: manipulation;
+        }
+        
+        html, body {
+            height: 100%;
+            overflow: auto;
+            width: 100%;
+        }
+        
+        #root {
+            min-height: 100%;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect } = React;
+
+        const EpidemicSimulation = () => {
+          const [populationSize, setPopulationSize] = useState(200);
+          const [infectionRate, setInfectionRate] = useState(0.3);
+          const [recoveryDays, setRecoveryDays] = useState(14);
+          const [initialInfected, setInitialInfected] = useState(3);
+          const [contactDistance, setContactDistance] = useState(15);
+          const [moveSpeed, setMoveSpeed] = useState(2);
+          const [isRunning, setIsRunning] = useState(false);
+          const [speed, setSpeed] = useState(100);
+          const [day, setDay] = useState(0);
+          const [people, setPeople] = useState([]);
+          const [history, setHistory] = useState([]);
+          
+          const initializePopulation = () => {
+            const newPeople = [];
+            const gridSize = Math.ceil(Math.sqrt(populationSize));
+            
+            for (let i = 0; i < populationSize; i++) {
+              newPeople.push({
+                id: i,
+                status: i < initialInfected ? 'infected' : 'susceptible',
+                daysInfected: i < initialInfected ? 0 : null,
+                x: (i % gridSize) * 30 + 15,
+                y: Math.floor(i / gridSize) * 30 + 15,
+                vx: (Math.random() - 0.5) * moveSpeed,
+                vy: (Math.random() - 0.5) * moveSpeed
+              });
+            }
+            
+            setPeople(newPeople);
+            setDay(0);
+            setHistory([{
+              day: 0,
+              susceptible: populationSize - initialInfected,
+              infected: initialInfected,
+              recovered: 0
+            }]);
+          };
+          
+          useEffect(() => {
+            initializePopulation();
+          }, [populationSize, initialInfected]);
+          
+          const handleReset = () => {
+            setIsRunning(false);
+            initializePopulation();
+          };
+          
+          const simulationStep = () => {
+            setPeople(prevPeople => {
+              const newPeople = [...prevPeople];
+              const canvasWidth = 600;
+              const canvasHeight = 400;
+              
+              newPeople.forEach(person => {
+                person.x += person.vx;
+                person.y += person.vy;
+                
+                if (person.x < 10 || person.x > canvasWidth - 10) person.vx *= -1;
+                if (person.y < 10 || person.y > canvasHeight - 10) person.vy *= -1;
+                
+                person.x = Math.max(10, Math.min(canvasWidth - 10, person.x));
+                person.y = Math.max(10, Math.min(canvasHeight - 10, person.y));
+              });
+              
+              const infected = newPeople.filter(p => p.status === 'infected');
+              const susceptible = newPeople.filter(p => p.status === 'susceptible');
+              
+              susceptible.forEach(person => {
+                infected.forEach(infectedPerson => {
+                  const distance = Math.sqrt(
+                    Math.pow(person.x - infectedPerson.x, 2) + 
+                    Math.pow(person.y - infectedPerson.y, 2)
+                  );
+                  
+                  if (distance < contactDistance && Math.random() < infectionRate) {
+                    person.status = 'infected';
+                    person.daysInfected = 0;
+                  }
+                });
+              });
+              
+              newPeople.forEach(person => {
+                if (person.status === 'infected') {
+                  person.daysInfected++;
+                  if (person.daysInfected >= recoveryDays) {
+                    person.status = 'recovered';
+                  }
+                }
+              });
+              
+              return newPeople;
+            });
+            
+            setDay(prev => prev + 1);
+          };
+          
+          useEffect(() => {
+            if (people.length > 0) {
+              const stats = {
+                day,
+                susceptible: people.filter(p => p.status === 'susceptible').length,
+                infected: people.filter(p => p.status === 'infected').length,
+                recovered: people.filter(p => p.status === 'recovered').length
+              };
+              
+              setHistory(prev => {
+                const newHistory = [...prev];
+                if (newHistory[newHistory.length - 1]?.day !== day) {
+                  newHistory.push(stats);
+                }
+                return newHistory.slice(-100);
+              });
+            }
+          }, [people, day]);
+          
+          useEffect(() => {
+            if (isRunning) {
+              const interval = setInterval(simulationStep, speed);
+              return () => clearInterval(interval);
+            }
+          }, [isRunning, speed, infectionRate, recoveryDays, contactDistance]);
+          
+          const renderPeople = () => {
+            return people.map(person => {
+              let color;
+              if (person.status === 'susceptible') color = '#3b82f6';
+              else if (person.status === 'infected') color = '#ef4444';
+              else color = '#10b981';
+              
+              return (
+                <circle
+                  key={person.id}
+                  cx={person.x}
+                  cy={person.y}
+                  r="5"
+                  fill={color}
+                />
+              );
+            });
+          };
+          
+          const renderChart = () => {
+            if (history.length < 2) return null;
+            
+            const maxValue = Math.max(...history.map(h => Math.max(h.susceptible, h.infected, h.recovered)));
+            const width = 580;
+            const height = 150;
+            
+            const points = (data) => {
+              return history.map((h, i) => {
+                const x = (i / (history.length - 1)) * width;
+                const y = height - (data(h) / maxValue) * height;
+                return `${x},${y}`;
+              }).join(' ');
+            };
+            
+            return (
+              <svg width={width} height={height} className="border border-gray-300 bg-white">
+                <polyline points={points(h => h.susceptible)} fill="none" stroke="#3b82f6" strokeWidth="2" />
+                <polyline points={points(h => h.infected)} fill="none" stroke="#ef4444" strokeWidth="2" />
+                <polyline points={points(h => h.recovered)} fill="none" stroke="#10b981" strokeWidth="2" />
+              </svg>
+            );
+          };
+          
+          const currentStats = history[history.length - 1] || { susceptible: 0, infected: 0, recovered: 0 };
+          
+          return (
+            <div className="p-4 sm:p-6 max-w-6xl mx-auto bg-gray-50 min-h-screen">
+              <h1 className="text-2xl sm:text-3xl font-bold mb-2 text-gray-800">🦠 Модель распространения эпидемии</h1>
+              <p className="text-sm sm:text-base text-gray-600 mb-4 sm:mb-6">Интерактивная SIR-модель</p>
+              
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
+                <div className="bg-white p-3 sm:p-4 rounded-lg shadow">
+                  <h2 className="text-lg sm:text-xl font-semibold mb-3">Визуализация (День: {day})</h2>
+                  <div className="overflow-x-auto">
+                    <svg width="600" height="400" className="border-2 border-gray-300 bg-gray-100 max-w-full h-auto">
+                      {renderPeople()}
+                    </svg>
+                  </div>
+                  
+                  <div className="flex gap-2 sm:gap-4 mt-4 text-xs sm:text-sm flex-wrap">
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 bg-blue-500 rounded-full"></div>
+                      <span>Здоровые: {currentStats.susceptible}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 bg-red-500 rounded-full"></div>
+                      <span>Больные: {currentStats.infected}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 bg-green-500 rounded-full"></div>
+                      <span>Выздоровевшие: {currentStats.recovered}</span>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="bg-white p-3 sm:p-4 rounded-lg shadow">
+                  <h2 className="text-lg sm:text-xl font-semibold mb-3">Параметры модели</h2>
+                  
+                  <div className="space-y-3 sm:space-y-4">
+                    <div>
+                      <label className="block text-xs sm:text-sm font-medium mb-1">
+                        Население: {populationSize}
+                      </label>
+                      <input type="range" min="50" max="400" value={populationSize}
+                        onChange={(e) => setPopulationSize(parseInt(e.target.value))} className="w-full" />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-xs sm:text-sm font-medium mb-1">
+                        Вероятность заражения: {(infectionRate * 100).toFixed(0)}%
+                      </label>
+                      <input type="range" min="0" max="1" step="0.05" value={infectionRate}
+                        onChange={(e) => setInfectionRate(parseFloat(e.target.value))} className="w-full" />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-xs sm:text-sm font-medium mb-1">
+                        Длительность болезни: {recoveryDays} дней
+                      </label>
+                      <input type="range" min="5" max="30" value={recoveryDays}
+                        onChange={(e) => setRecoveryDays(parseInt(e.target.value))} className="w-full" />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-xs sm:text-sm font-medium mb-1">
+                        Изначально заражённых: {initialInfected}
+                      </label>
+                      <input type="range" min="1" max="20" value={initialInfected}
+                        onChange={(e) => setInitialInfected(parseInt(e.target.value))} className="w-full" />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-xs sm:text-sm font-medium mb-1">
+                        Радиус заражения: {contactDistance} пикселей
+                      </label>
+                      <input type="range" min="5" max="50" value={contactDistance}
+                        onChange={(e) => setContactDistance(parseInt(e.target.value))} className="w-full" />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-xs sm:text-sm font-medium mb-1">
+                        Скорость движения: {moveSpeed.toFixed(1)}
+                      </label>
+                      <input type="range" min="0.5" max="5" step="0.5" value={moveSpeed}
+                        onChange={(e) => setMoveSpeed(parseFloat(e.target.value))} className="w-full" />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-xs sm:text-sm font-medium mb-1">
+                        Скорость симуляции: {speed}ms
+                      </label>
+                      <input type="range" min="10" max="500" step="10" value={speed}
+                        onChange={(e) => setSpeed(parseInt(e.target.value))} className="w-full" />
+                    </div>
+                  </div>
+                  
+                  <div className="flex gap-3 mt-4 sm:mt-6">
+                    <button onClick={() => setIsRunning(!isRunning)}
+                      className={`flex-1 py-2 px-4 rounded font-semibold text-sm sm:text-base ${
+                        isRunning ? 'bg-red-500 hover:bg-red-600 text-white' : 'bg-green-500 hover:bg-green-600 text-white'
+                      }`}>
+                      {isRunning ? '⏸ Пауза' : '▶ Старт'}
+                    </button>
+                    <button onClick={handleReset}
+                      className="flex-1 py-2 px-4 bg-gray-500 hover:bg-gray-600 text-white rounded font-semibold text-sm sm:text-base">
+                      🔄 Сброс
+                    </button>
+                  </div>
+                  
+                  <div className="mt-4">
+                    <p className="text-xs font-semibold text-gray-600 mb-2">⚡ Быстрые настройки:</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button onClick={() => {
+                          setContactDistance(50); setInfectionRate(1); setMoveSpeed(0.5); setRecoveryDays(20);
+                        }} className="py-1.5 px-2 bg-red-100 hover:bg-red-200 text-red-800 rounded text-xs font-medium">
+                        💯 Все заболеют
+                      </button>
+                      <button onClick={() => {
+                          setContactDistance(5); setInfectionRate(0.1); setMoveSpeed(2); setRecoveryDays(10);
+                        }} className="py-1.5 px-2 bg-green-100 hover:bg-green-200 text-green-800 rounded text-xs font-medium">
+                        🛡️ Карантин
+                      </button>
+                      <button onClick={() => {
+                          setContactDistance(25); setInfectionRate(0.5); setMoveSpeed(1.5); setRecoveryDays(14);
+                        }} className="py-1.5 px-2 bg-yellow-100 hover:bg-yellow-200 text-yellow-800 rounded text-xs font-medium">
+                        😷 Обычный грипп
+                      </button>
+                      <button onClick={() => {
+                          setContactDistance(30); setInfectionRate(0.8); setMoveSpeed(1); setRecoveryDays(7);
+                        }} className="py-1.5 px-2 bg-purple-100 hover:bg-purple-200 text-purple-800 rounded text-xs font-medium">
+                        ⚡ Супер-вирус
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="bg-white p-3 sm:p-4 rounded-lg shadow mt-4 sm:mt-6">
+                <h2 className="text-lg sm:text-xl font-semibold mb-3">График динамики</h2>
+                <div className="overflow-x-auto">{renderChart()}</div>
+                <div className="flex gap-2 sm:gap-4 mt-2 text-xs sm:text-sm justify-center flex-wrap">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-0.5 bg-blue-500"></div><span>Здоровые</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-0.5 bg-red-500"></div><span>Больные</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-0.5 bg-green-500"></div><span>Выздоровевшие</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        };
+
+        ReactDOM.render(<EpidemicSimulation />, document.getElementById('root'));
+    </script>
+</body>
+</html>

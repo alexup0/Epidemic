@@ -1,0 +1,17 @@
+{
+  "name": "Модель эпидемии",
+  "short_name": "Эпидемия",
+  "description": "Интерактивная модель распространения эпидемии",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f9fafb",
+  "theme_color": "#ef4444",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
